@@ -1,0 +1,12 @@
+!slave/frames/
+slave/frames/*
+!server/frames/
+server/frames/*
+!server/edited_frames/
+server/edited_frames/*
+
+*.mp3
+*.mp4
+*.jpg
+*.jpeg
+*.png
