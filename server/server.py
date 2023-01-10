@@ -45,7 +45,6 @@ def framesToVideo(framesFolder, framesCount, fps, outVideoFilePath):
     frames = []
 
     for i in range(0, framesCount):
-        print(i)
         imagePath = framesFolder + str(i) + ".png"
         image = cv2.imread(imagePath)
         frames.append(image)
@@ -54,7 +53,6 @@ def framesToVideo(framesFolder, framesCount, fps, outVideoFilePath):
     video = cv2.VideoWriter(outVideoFilePath, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
     
     for i in range(0, framesCount - 1):
-        print(i)
         video.write(frames[i])
 
     cv2.destroyAllWindows()
@@ -65,21 +63,21 @@ def extractAudio(video_name , loc):
     audio.audio.write_audiofile(loc)
 
 
-def registerSlave(client_socket, client_address):
-	SLAVES_CONNECTIONS.append(client_socket)
+def registerSlave(clientConnection, clientAddress):
+	SLAVES_CONNECTIONS.append(clientConnection)
 
-	address, port = client_address
+	address, port = clientAddress
 	print("Slave registrado de {0}:{1}".format(address, port))
 
 
-def recieveVideoFromClient(client_socket, videoFilePath):
+def recieveVideoFromClient(clientConnection, videoFilePath):
 	print("Recibiendo video del cliente")
 	with open(videoFilePath, "wb") as file:
-		recv_data = client_socket.recv(BUFFER_SIZE)
+		recv_data = clientConnection.recv(BUFFER_SIZE)
 
 		while recv_data:
 			file.write(recv_data)
-			recv_data = client_socket.recv(BUFFER_SIZE)
+			recv_data = clientConnection.recv(BUFFER_SIZE)
 			
 			if recv_data == b"%VIDEO_ENVIADO%":
 				break
@@ -108,8 +106,17 @@ def processFramesWithSlaves(inFramesFolderPath, outFramesFolderPath, slavesConne
 	slavesCount = len(slavesConnections)
 	frameChunks = np.array_split(frames, slavesCount)
 
+	threads = []
+
 	for i in range(slavesCount):
-		processFrameBySlave(frameChunks[i], slavesConnections[i], inFramesFolderPath, outFramesFolderPath)
+		thread = threading.Thread(target=processFrameBySlave, args=(frameChunks[i], slavesConnections[i], inFramesFolderPath, outFramesFolderPath,))
+		threads.append(thread) 
+
+	for thread in threads:
+		thread.start()
+
+	for thread in threads:
+		thread.join()
 
 	print("Se procesaron todas las imágenes")
 	
