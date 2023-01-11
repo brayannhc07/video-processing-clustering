@@ -70,17 +70,33 @@ def registerSlave(clientConnection, clientAddress):
 	print("Slave registrado de {0}:{1}".format(address, port))
 
 
-def recieveVideoFromClient(clientConnection, videoFilePath):
-	print("Recibiendo video del cliente")
-	with open(videoFilePath, "wb") as file:
-		recv_data = clientConnection.recv(BUFFER_SIZE)
+def returnVideoToClient(clientConnection, videoFilePath):
+	with open(videoFilePath, "rb") as file:
+		fileLength = file.seek(0, 2)
+		file.seek(0, 0)
 
-		while recv_data:
-			file.write(recv_data)
-			recv_data = clientConnection.recv(BUFFER_SIZE)
-			
-			if recv_data == b"%VIDEO_ENVIADO%":
-				break
+		imageLengthBytes = fileLength.to_bytes(4, "big")
+
+		clientConnection.sendall(imageLengthBytes)
+		
+		data = file.read(BUFFER_SIZE)
+
+		while len(data):
+			clientConnection.sendall(data)
+			data = file.read(BUFFER_SIZE)
+
+def recieveVideoFromClient(clientConnection, videoFilePath):
+	imageLengthBytes = recieveBytes(4, clientConnection)
+	imageLength = int.from_bytes(imageLengthBytes, 'big')
+
+	with open( videoFilePath, "wb") as file:
+		bytesToRecieve = imageLength
+		while bytesToRecieve:
+			recievedData = recieveBytes(min(BUFFER_SIZE, bytesToRecieve), clientConnection)
+			file.write(recievedData)
+			bytesToRecieve -= len(recievedData)
+
+	print("Video recibido")
 
 def saveVideoFrames(videoFilePath, framesFolderPath):
 	print("Separando video en frames")
@@ -182,6 +198,8 @@ def main():
 			addVideoAudio(AUDIO_PATH, VIDEO_EDITED_PATH, VIDEO_FINAL_PATH)
 
 			print("Video terminado de procesar")
+
+			returnVideoToClient(client_socket, VIDEO_FINAL_PATH)
 
 		if recv_data == b"%REGISTRO_SLAVE%":
 			registerSlave(client_socket, client_address)
